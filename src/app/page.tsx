@@ -1,5 +1,6 @@
 "use client"
-import { useEffect, useMemo, useState, useRef } from "react"
+import { useEffect, useMemo, useState, useRef, Suspense } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
@@ -11,10 +12,14 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkCjkFriendly from "remark-cjk-friendly"
 import { analyzePrompt } from "@/prompts/analyze"
+import { NavMenu } from "@/components/nav-menu"
 
 type Provider = "netease" | "tencent" | "kugou" | "baidu" | "kuwo"
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
   const [provider, setProvider] = useState<Provider>("tencent")
   const [inputValue, setInputValue] = useState("")
   const [lyrics, setLyrics] = useState<Lyrics | null>(null)
@@ -31,6 +36,23 @@ export default function Home() {
   const [songInfo, setSongInfo] = useState<{ name: string; artist: string[]; album: string } | null>(null)
   const [showReasoning, setShowReasoning] = useState(false)
   const analysisInProgressRef = useRef(false)
+  const mountRef = useRef(false)
+
+  // Initialize from URL params
+  useEffect(() => {
+    if (mountRef.current) return
+    mountRef.current = true
+    
+    const urlProvider = searchParams.get("provider") as Provider
+    const urlId = searchParams.get("id")
+    
+    if (urlId && urlProvider) {
+      setProvider(urlProvider)
+      setInputValue(urlId)
+      // Auto fetch
+      fetchLyrics(urlProvider, urlId)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const u = localStorage.getItem("ai_base_url")
@@ -76,16 +98,17 @@ export default function Home() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
   }
 
-  async function fetchLyrics() {
+  async function fetchLyrics(p = provider, v = inputValue) {
+    if (!v) return
     setLoading(true)
     setAnalysis("")
     setLyricError("")
     try {
-      const source = /^https?:\/\//.test(inputValue) ? "url" : "id"
+      const source = /^https?:\/\//.test(v) ? "url" : "id"
       const res = await fetch("/api/lyrics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, source, value: inputValue }),
+        body: JSON.stringify({ provider: p, source, value: v }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -98,7 +121,7 @@ export default function Home() {
       setCoverUrl(data.coverUrl || "")
       setSongInfo(data.songInfo || null)
       
-      const cacheKey = `analysis_${provider}_${inputValue}_${model}`
+      const cacheKey = `analysis_${p}_${v}_${model}`
       const cachedAnalysis = localStorage.getItem(cacheKey)
       if (cachedAnalysis) {
         const parsed = JSON.parse(cachedAnalysis)
@@ -203,7 +226,8 @@ export default function Home() {
   return (
     <div className="flex min-h-screen items-start justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="w-full max-w-4xl py-10 px-6">
-        {/* <h1 className="text-2xl font-semibold mb-6">AI 歌词赏析</h1> */}
+        <NavMenu />
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="md:col-span-1">
             <label className="mb-2 block text-sm">平台</label>
@@ -221,8 +245,8 @@ export default function Home() {
           <div className="md:col-span-2">
             <label className="mb-2 block text-sm">歌曲链接或 ID</label>
             <div className="flex gap-2">
-              <Input placeholder="https://music.163.com/song?id=... 或 y.qq.com/..." value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
-              <Button onClick={fetchLyrics} disabled={loading}>获取歌词</Button>
+              <Input placeholder="输入歌曲 ID 直链" value={inputValue} onChange={(e) => setInputValue(e.target.value)} />
+              <Button onClick={() => fetchLyrics()} disabled={loading}>获取歌词</Button>
             </div>
             {lyricError && (
               <p className="mt-2 text-sm text-red-600">{lyricError}</p>
@@ -322,5 +346,13 @@ export default function Home() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-10">Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   )
 }
