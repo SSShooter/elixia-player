@@ -49,8 +49,8 @@ function SearchContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="w-full max-w-4xl py-10 px-6">
+    <div className="flex h-screen items-start justify-center bg-zinc-50 font-sans dark:bg-black">
+      <main className="flex flex-col w-full max-w-4xl h-full py-10 px-6">
         <NavMenu />
         
         <PageHeader 
@@ -67,45 +67,47 @@ function SearchContent() {
 
         {error && <p className="text-red-500 mb-4">Error: {(error as Error).message}</p>}
 
-        <div className="border rounded-md bg-white dark:bg-zinc-900 overflow-x-auto">
-          <Table className="table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="">歌曲名称</TableHead>
-                <TableHead className="w-1/4">歌手</TableHead>
-                <TableHead className="w-1/4">专辑</TableHead>
-                <TableHead className="w-[90px]">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {results.length === 0 && !loading && (
+        <div className="flex-1 border rounded-md bg-white dark:bg-zinc-900 overflow-hidden flex flex-col min-h-0">
+          <div className="overflow-auto flex-1">
+            <Table className="table-fixed">
+              <TableHeader className="sticky top-0 bg-white dark:bg-zinc-900 z-10">
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-zinc-500 h-24">
-                    暂无搜索结果
-                  </TableCell>
+                  <TableHead className="">歌曲名称</TableHead>
+                  <TableHead className="w-1/4">歌手</TableHead>
+                  <TableHead className="w-1/4">专辑</TableHead>
+                  <TableHead className="w-[90px]">操作</TableHead>
                 </TableRow>
-              )}
-              {results.map((song, idx) => (
-                <TableRow key={song.id || idx}>
-                  <TableCell className="font-medium truncate">{song.name}</TableCell>
-                  <TableCell className="truncate">{Array.isArray(song.artist) ? song.artist.join(", ") : song.artist}</TableCell>
-                  <TableCell className="truncate">{song.album}</TableCell>
-                  <TableCell className="">
-                    <Button size="sm" onClick={() => handleSelect(song)}>
-                      选择
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {loading && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-zinc-500 h-24">
-                    加载中...
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {results.length === 0 && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-zinc-500 h-24">
+                      暂无搜索结果
+                    </TableCell>
+                  </TableRow>
+                )}
+                {results.map((song, idx) => (
+                  <TableRow key={song.id || idx}>
+                    <TableCell className="font-medium truncate">{song.name}</TableCell>
+                    <TableCell className="truncate">{Array.isArray(song.artist) ? song.artist.join(", ") : song.artist}</TableCell>
+                    <TableCell className="truncate">{song.album}</TableCell>
+                    <TableCell className="">
+                      <Button size="sm" onClick={() => handleSelect(song)}>
+                        选择
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-zinc-500 h-24">
+                      加载中...
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </main>
     </div>
