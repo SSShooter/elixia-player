@@ -4,7 +4,8 @@ import { NavMenu } from "@/components/nav-menu"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import { CheckIcon, ChevronsUpDownIcon } from "lucide-react"
+import { CheckIcon, ChevronsUpDownIcon, DownloadIcon, UploadIcon } from "lucide-react"
+import JSZip from "jszip"
 import {
   Command,
   CommandEmpty,
@@ -141,6 +142,96 @@ function SettingsContent() {
 
   function updateCookie(provider: MusicProvider, value: string) {
     setCookies(prev => ({ ...prev, [provider]: value }))
+  }
+
+  async function exportAICaches() {
+    try {
+      // Collect all AI cache entries from localStorage
+      const caches: Record<string, { analysis: string; reasoning: string }> = {}
+      
+      // Iterate through all localStorage keys
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && (key.startsWith("analysis_") || key.startsWith("language_learning_"))) {
+          const value = localStorage.getItem(key)
+          if (value) {
+            try {
+              caches[key] = JSON.parse(value)
+            } catch {
+              // Skip invalid JSON entries
+            }
+          }
+        }
+      }
+
+      // Create ZIP file
+      const zip = new JSZip()
+      zip.file("ai_caches.json", JSON.stringify(caches, null, 2))
+      
+      // Generate ZIP blob
+      const blob = await zip.generateAsync({ type: "blob" })
+      
+      // Download the file
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `ai_caches_${new Date().toISOString().split('T')[0]}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Export failed:", error)
+      alert("导出失败，请查看控制台错误信息")
+    }
+  }
+
+  async function importAICaches() {
+    try {
+      // Create file input
+      const input = document.createElement("input")
+      input.type = "file"
+      input.accept = ".zip"
+      
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
+        
+        try {
+          // Read ZIP file
+          const zip = await JSZip.loadAsync(file)
+          const jsonFile = zip.file("ai_caches.json")
+          
+          if (!jsonFile) {
+            alert("ZIP 文件中未找到 ai_caches.json")
+            return
+          }
+          
+          // Parse JSON
+          const content = await jsonFile.async("string")
+          const caches = JSON.parse(content)
+          
+          // Import all caches to localStorage
+          let importCount = 0
+          for (const [key, value] of Object.entries(caches)) {
+            if (key.startsWith("analysis_") || key.startsWith("language_learning_")) {
+              localStorage.setItem(key, JSON.stringify(value))
+              importCount++
+            }
+          }
+          
+          alert(`成功导入 ${importCount} 条 AI 缓存记录`)
+        } catch (error) {
+          console.error("Import failed:", error)
+          alert("导入失败，请确保文件格式正确")
+        }
+      }
+      
+      input.click()
+    } catch (error) {
+      console.error("Import failed:", error)
+      alert("导入失败，请查看控制台错误信息")
+    }
   }
 
   return (
@@ -300,6 +391,37 @@ function SettingsContent() {
                   <li>配置保存后，在播放器页面可以使用 AI 赏析功能</li>
                   <li>支持任何 OpenAI 兼容的 API 端点</li>
                   <li>配置信息仅保存在浏览器本地，不会上传到服务器</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* AI Cache Management */}
+          <section className="mt-12">
+            <h2 className="text-xl font-semibold mb-2">AI 缓存管理</h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+              导出和导入所有 AI 回复缓存
+            </p>
+            
+            <div className="space-y-4 max-w-2xl">
+              <div className="flex gap-2">
+                <Button onClick={exportAICaches} variant="outline">
+                  <DownloadIcon className="mr-2 h-4 w-4" />
+                  导出缓存
+                </Button>
+                <Button onClick={importAICaches} variant="outline">
+                  <UploadIcon className="mr-2 h-4 w-4" />
+                  导入缓存
+                </Button>
+              </div>
+
+              <div className="p-4 border rounded-md bg-blue-50 dark:bg-blue-950/30">
+                <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">使用说明</h3>
+                <ul className="text-sm text-blue-700 dark:text-blue-400 space-y-1 list-disc list-inside">
+                  <li>导出功能会将所有 AI 赏析和语言学习的缓存打包成 ZIP 文件</li>
+                  <li>导入功能可以从 ZIP 文件中恢复之前导出的缓存</li>
+                  <li>缓存包含歌词分析和语言学习的所有 AI 回复内容</li>
+                  <li>导入时会覆盖同名的缓存记录</li>
                 </ul>
               </div>
             </div>
