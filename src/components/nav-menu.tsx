@@ -10,11 +10,6 @@ export function NavMenu() {
 
   return (
     <div className="flex items-center gap-2 mb-6">
-      <Link href="/">
-        <Button variant={pathname === "/" ? "default" : "secondary"} size="sm">
-          播放器
-        </Button>
-      </Link>
       <Link href="/search">
         <Button variant={pathname === "/search" ? "default" : "secondary"} size="sm">
           歌曲搜索
@@ -23,6 +18,11 @@ export function NavMenu() {
       <Link href="/playlist">
         <Button variant={pathname === "/playlist" ? "default" : "secondary"} size="sm">
           歌单查找
+        </Button>
+      </Link>
+      <Link href="/">
+        <Button variant={pathname === "/" ? "default" : "secondary"} size="sm">
+          播放器
         </Button>
       </Link>
     </div>

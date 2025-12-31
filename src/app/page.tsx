@@ -12,6 +12,8 @@ import remarkCjkFriendly from "remark-cjk-friendly"
 import { analyzePrompt } from "@/prompts/analyze"
 import { NavMenu } from "@/components/nav-menu"
 import { Provider } from "@/components/provider-selector"
+import { useLyrics } from "@/hooks/use-api"
+import { Player } from "@/components/player"
 
 function HomeContent() {
   const searchParams = useSearchParams()
@@ -19,37 +21,50 @@ function HomeContent() {
   
   const [provider, setProvider] = useState<Provider>("tencent")
   const [inputValue, setInputValue] = useState("")
-  const [lyrics, setLyrics] = useState<Lyrics | null>(null)
-  const [lyricError, setLyricError] = useState<string>("")
+  // const [lyrics, setLyrics] = useState<Lyrics | null>(null) // Now derived
+  // const [lyricError, setLyricError] = useState<string>("") // Now derived
   const [analysis, setAnalysis] = useState("")
   const [reasoning, setReasoning] = useState("")
   const [baseUrl, setBaseUrl] = useState("")
   const [apiKey, setApiKey] = useState("")
   const [model, setModel] = useState("gpt-4o-mini")
-  const [loading, setLoading] = useState(false)
+  // const [loading, setLoading] = useState(false) // Now derived
   const [aLoading, setALoading] = useState(false)
   const [showTranslation, setShowTranslation] = useState(true)
-  const [coverUrl, setCoverUrl] = useState("")
-  const [songInfo, setSongInfo] = useState<{ name: string; artist: string[]; album: string } | null>(null)
+  // const [coverUrl, setCoverUrl] = useState("") // Now derived
+  // const [songInfo, setSongInfo] = useState<{ name: string; artist: string[]; album: string } | null>(null) // Now derived
   const [showReasoning, setShowReasoning] = useState(false)
   const analysisInProgressRef = useRef(false)
-  const mountRef = useRef(false)
 
-  // Initialize from URL params
+  // URL Params -> Hook Params
+  const urlProvider = (searchParams.get("provider") as Provider)
+  const urlId = searchParams.get("id")
+
+  // The hook should drive the data
+  // Only query if both are present in URL (or we want to trigger from input too? Design decision: URL drives query to allow sharing)
+  // Actually original code synced local state with URL.
+  
+  // Use a separate state to "trigger" the query?
+  // Or just use the URL params as the source of truth for the Query.
+  // The input value is local state for editing.
+  
+  const { data: lyricsData, isLoading: loading, error: lyricErrorObject } = useLyrics(urlId || "", urlProvider || "tencent")
+  const lyricError = lyricErrorObject ? (lyricErrorObject as Error).message : ""
+
+  const lyrics: Lyrics | null = useMemo(() => {
+    if (!lyricsData) return null
+    return parseLrc(lyricsData.lrc || "", lyricsData.tlyric || "")
+  }, [lyricsData])
+  
+  const coverUrl = lyricsData?.coverUrl || ""
+  const songInfo = lyricsData?.songInfo || null
+
+  // Sync local state with URL params
   useEffect(() => {
-    if (mountRef.current) return
-    mountRef.current = true
-    
-    const urlProvider = searchParams.get("provider") as Provider
-    const urlId = searchParams.get("id")
-    
-    if (urlId && urlProvider) {
-      setProvider(urlProvider)
-      setInputValue(urlId)
-      // Auto fetch
-      fetchLyrics(urlProvider, urlId)
-    }
-  }, [searchParams])
+    if (urlProvider) setProvider(urlProvider)
+    if (urlId) setInputValue(urlId)
+  }, [urlProvider, urlId])
+
 
   useEffect(() => {
     const u = localStorage.getItem("ai_base_url")
@@ -62,7 +77,14 @@ function HomeContent() {
 
   useEffect(() => {
     if (lyrics && inputValue) {
-        const cacheKey = `analysis_${provider}_${inputValue}_${model}`
+        // Note: using inputValue here might be slightly off if user changed input but didn't fetch.
+        // Better to use urlId if that's what fetched the lyrics.
+        // But original used simple 'inputValue'.
+        // Let's stick to 'urlId' if available for cache key to be consistent with data
+        const idToUse = urlId || inputValue
+        const provToUse = urlProvider || provider
+
+        const cacheKey = `analysis_${provToUse}_${idToUse}_${model}`
         const cachedAnalysis = localStorage.getItem(cacheKey)
         if (cachedAnalysis) {
           const parsed = JSON.parse(cachedAnalysis)
@@ -73,7 +95,7 @@ function HomeContent() {
           setReasoning("")
         }
       }
-  }, [model, provider, lyrics, inputValue])
+  }, [model, provider, lyrics, inputValue, urlId, urlProvider])
 
   useEffect(() => {
     if (!analysisInProgressRef.current && reasoning) {
@@ -95,43 +117,15 @@ function HomeContent() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
   }
 
-  async function fetchLyrics(p = provider, v = inputValue) {
-    if (!v) return
-    setLoading(true)
-    setAnalysis("")
-    setLyricError("")
-    try {
-      const source = /^https?:\/\//.test(v) ? "url" : "id"
-      const res = await fetch("/api/lyrics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: p, source, value: v }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setLyricError(String(data?.error || "lyrics_fetch_failed"))
-        throw new Error(String(data?.error || "lyrics_fetch_failed"))
-      }
-      const lrc = String(data.lrc || "")
-      const tlyric = String(data.tlyric || "")
-      setLyrics(parseLrc(lrc, tlyric))
-      setCoverUrl(data.coverUrl || "")
-      setSongInfo(data.songInfo || null)
-      
-      const cacheKey = `analysis_${p}_${v}_${model}`
-      const cachedAnalysis = localStorage.getItem(cacheKey)
-      if (cachedAnalysis) {
-        const parsed = JSON.parse(cachedAnalysis)
-        setAnalysis(parsed.analysis || "")
-        setReasoning(parsed.reasoning || "")
-      }
-    } catch {
-      setLyrics(null)
-      setCoverUrl("")
-      setSongInfo(null)
-    } finally {
-      setLoading(false)
-    }
+  // Wrapped fetchLyrics is no longer needed as a standalone async function for data fetching
+  // But we need a handler for the "Get Lyrics" button
+  function handleFetchLyrics() {
+    // Just push to URL, the hook detects change and fetches
+    if (!inputValue) return
+    const params = new URLSearchParams(searchParams)
+    params.set("id", inputValue)
+    params.set("provider", provider)
+    router.push(`/?${params.toString()}`)
   }
 
   async function analyze() {
@@ -202,7 +196,9 @@ function HomeContent() {
         }
       }
       
-      const cacheKey = `analysis_${provider}_${inputValue}_${model}`
+      const idToUse = urlId || inputValue
+      const provToUse = urlProvider || provider
+      const cacheKey = `analysis_${provToUse}_${idToUse}_${model}`
       const cacheData = JSON.stringify({ analysis: fullContent, reasoning: fullReasoning })
       localStorage.setItem(cacheKey, cacheData)
     } catch {
@@ -233,7 +229,7 @@ function HomeContent() {
           setInputValue={setInputValue}
           placeholder="输入歌曲链接或 ID..."
           actionLabel="获取歌词"
-          onAction={() => fetchLyrics()}
+          onAction={handleFetchLyrics}
           loading={loading}
         />
         {lyricError && (
@@ -242,38 +238,23 @@ function HomeContent() {
 
         {lyrics && (
           <div className="grid grid-cols-1 gap-6 mt-6">
-            <div>
-              <div className="flex items-center justify-between mb-2">
+            <div  className="space-y-4">
+                {coverUrl && songInfo && (
+                  <Player 
+                    id={urlId || inputValue} 
+                    provider={provider} 
+                    coverUrl={coverUrl} 
+                    songInfo={songInfo} 
+                  />
+                )}
+              <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium">歌词</h2>
                 <div className="flex items-center gap-2">
                   <span className="text-sm">显示翻译</span>
                   <Switch checked={showTranslation} onCheckedChange={setShowTranslation} />
                 </div>
               </div>
-              <div className="space-y-4">
-                {coverUrl && (
-                  <div className="flex items-start gap-4 p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={coverUrl} 
-                      alt="专辑封面" 
-                      className="w-24 h-24 object-cover rounded shadow-md"
-                    />
-                    {songInfo && (
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg">{songInfo.name}</h3>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                          {songInfo.artist.join(" / ")}
-                        </p>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-500">
-                          {songInfo.album}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
                 <LyricsRenderer lyrics={lyrics} showTranslation={showTranslation} showTimestamp={true} />
-              </div>
             </div>
             <div>
               <h2 className="text-lg font-medium mb-2">AI 赏析</h2>

@@ -41,7 +41,7 @@ export default function LyricsRenderer({
               </span>
             )}
             <span>{line.text}</span>
-            {showTranslation && line.translation && (
+            {line.text && showTranslation && line.translation && (
               <span className="ml-3 text-sm text-zinc-500">{line.translation}</span>
             )}
           </div>

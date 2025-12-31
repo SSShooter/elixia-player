@@ -14,16 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Provider } from "@/components/provider-selector"
-
-interface SongResult {
-  id: string | number
-  name: string
-  artist: string[]
-  album: string
-  // Meting sometimes returns unexpected structures, adapt as needed
-  url_id?: string | number // backup id
-  pic_id?: string | number
-}
+import { useSearchSongs, type SongResult } from "@/hooks/use-api"
 
 export default function SearchPage() {
   const router = useRouter()
@@ -32,76 +23,33 @@ export default function SearchPage() {
   
   const [keyword, setKeyword] = useState(searchParams.get("keyword") || "")
   const [provider, setProvider] = useState<Provider>((searchParams.get("provider") as Provider) || "tencent")
-  const [results, setResults] = useState<SongResult[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
 
-  // Sync state with URL params on change (e.g. back button)
-  // We prefer the URL params to be the source of truth for the inputs when they change
-  // allowing the user to see what they are searching for if they arrive via link
-  // However, we also want the input to be editable without constantly resetting if we typed but didn't search.
-  // Actually, usually inputs are uncontrolled or loose specific sync. 
-  // But if we hit back, we want the input to revert.
-  // Simple approach: Sync on mount and param change.
-  // Warning: If I type "A" and params are "B", typing triggers state change. 
-  // If I don't push, params stay "B". Pass.
-  
-  // Effect to fetch data when URL params change
+  // Use the custom hook
+  // We need to pass the *search params* keyword to the hook, not the input state, 
+  // because we only want to search when URL changes (user pressed search).
+  const urlKeyword = searchParams.get("keyword") || ""
+  const urlProvider = (searchParams.get("provider") as Provider) || "tencent"
+
+  const { data: results = [], isLoading: loading, error } = useSearchSongs(urlKeyword, urlProvider)
+
+  // Effect to sync local state with URL params
   useEffect(() => {
     const kw = searchParams.get("keyword")
     const prov = (searchParams.get("provider") as Provider) || "tencent"
     
-    // Update local state to match URL (useful for back button)
-    if (kw && kw !== keyword) setKeyword(kw)
-    if (prov && prov !== provider) setProvider(prov)
-
-    if (kw) {
-      doSearch(kw, prov)
-    }
+    if (kw) setKeyword(kw)
+    if (prov) setProvider(prov)
   }, [searchParams])
-
-  async function doSearch(kw: string, prov: Provider) {
-    setLoading(true)
-    setError("")
-    // setResults([]) // Keep previous results while loading
-
-    try {
-      const res = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: prov,
-          keyword: kw,
-          page: 1,
-          limit: 30,
-        }),
-      })
-      if (!res.ok) throw new Error("Search failed")
-      const data = await res.json()
-      // Meting usually returns an array of songs
-      if (Array.isArray(data)) {
-        setResults(data)
-      } else {
-        setResults([])
-      }
-    } catch (e) {
-      setError(String(e))
-    } finally {
-      setLoading(false)
-    }
-  }
 
   function handleSearch() {
     if (!keyword) return
     const params = new URLSearchParams(searchParams)
     params.set("keyword", keyword)
     params.set("provider", provider)
-    router.push(`${pathname}?${params.toString()}`)
+    router.replace(`${pathname}?${params.toString()}`)
   }
 
   function handleSelect(minfo: SongResult) {
-    // Meting song object usually has `id`
-    // Ensure we have an ID
     const songId = minfo.id || minfo.url_id
     if (!songId) return
     
@@ -125,16 +73,16 @@ export default function SearchPage() {
           loading={loading}
         />
 
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+        {error && <p className="text-red-500 mb-4">Error: {(error as Error).message}</p>}
 
         <div className="border rounded-md bg-white dark:bg-zinc-900 overflow-x-auto">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[200px]">歌曲名称</TableHead>
-                <TableHead className="min-w-[150px]">歌手</TableHead>
-                <TableHead className="min-w-[150px]">专辑</TableHead>
-                <TableHead className="w-[100px] sticky right-0 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-700">操作</TableHead>
+                <TableHead className="">歌曲名称</TableHead>
+                <TableHead className="w-1/4">歌手</TableHead>
+                <TableHead className="w-1/4">专辑</TableHead>
+                <TableHead className="w-[90px]">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -147,10 +95,10 @@ export default function SearchPage() {
               )}
               {results.map((song, idx) => (
                 <TableRow key={song.id || idx}>
-                  <TableCell className="font-medium whitespace-nowrap">{song.name}</TableCell>
-                  <TableCell className="whitespace-nowrap">{Array.isArray(song.artist) ? song.artist.join(", ") : song.artist}</TableCell>
-                  <TableCell className="whitespace-nowrap">{song.album}</TableCell>
-                  <TableCell className="sticky right-0 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-700">
+                  <TableCell className="font-medium truncate">{song.name}</TableCell>
+                  <TableCell className="truncate">{Array.isArray(song.artist) ? song.artist.join(", ") : song.artist}</TableCell>
+                  <TableCell className="truncate">{song.album}</TableCell>
+                  <TableCell className="">
                     <Button size="sm" onClick={() => handleSelect(song)}>
                       选择
                     </Button>
