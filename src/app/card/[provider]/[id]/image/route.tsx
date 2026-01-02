@@ -1,8 +1,12 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import Meting from "@/meting/meting.js";
+import fs from 'fs';
+import path from 'path';
 
 export const runtime = 'nodejs';
+
+const fontData = fs.readFileSync(path.join(process.cwd(), 'public/fonts/NotoSansCJKsc-Regular.otf'));
 
 export async function GET(
     request: NextRequest,
@@ -74,7 +78,7 @@ export async function GET(
                         borderRadius: `${borderRadius}px`,
                         border: '2px solid rgba(255, 255, 255, 0.1)', // Thicker border for hi-res
                         overflow: 'hidden',
-                        fontFamily: 'sans-serif',
+                        fontFamily: 'Noto Sans CJK SC',
                         position: 'relative',
                     }}
                 >
@@ -113,7 +117,6 @@ export async function GET(
                             width: '100%',
                             height: '100%',
                             padding: `${padding}px`,
-                            zIndex: 10,
                         }}
                     >
                         {/* Cover Art */}
@@ -205,6 +208,14 @@ export async function GET(
         {
             width: width,
             height: height,
+            fonts: [
+                {
+                    name: 'Noto Sans CJK SC',
+                    data: fontData,
+                    style: 'normal',
+                    weight: 400,
+                },
+            ],
         }
     );
 }
