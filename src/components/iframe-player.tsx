@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Provider } from "@/components/provider-selector";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Loader2, Volume2, VolumeX } from "lucide-react";
+import { Play, Pause, Loader2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
@@ -129,13 +129,6 @@ export function IframePlayer({ id, provider, coverUrl, songInfo }: IframePlayerP
         if (audioRef.current) {
             audioRef.current.currentTime = value[0];
             setCurrentTime(value[0]);
-        }
-    };
-
-    const toggleMute = () => {
-        if (audioRef.current) {
-            audioRef.current.muted = !isMuted;
-            setIsMuted(!isMuted);
         }
     };
 

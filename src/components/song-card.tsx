@@ -34,7 +34,7 @@ export function SongCard({ id, provider, coverUrl, songInfo }: SongCardProps) {
                 href={externalHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block relative w-full overflow-hidden rounded-xl bg-zinc-900 border border-white/10 shadow-xl font-sans text-white select-none hover:border-white/20 transition-all duration-300 hover:shadow-2xl"
+                className="block relative w-full overflow-hidden rounded-xl bg-zinc-900 shadow-xl font-sans text-white select-none transition-all duration-300 hover:shadow-2xl"
             >
                 {/* Dynamic Background */}
                 <div
