@@ -1,5 +1,7 @@
 # Elixia Player
 
+English | [简体中文](./README.zh-CN.md)
+
 A modern music player web application built with Next.js, featuring AI-powered lyrics analysis and language learning tools. It integrates with various music platforms to provide a seamless playback and learning experience.
 
 ## Features
@@ -11,6 +13,14 @@ A modern music player web application built with Next.js, featuring AI-powered l
 - **Playlist Management**: Easily import and explore tracks from external playlist links.
 
 ## Song Card
+
+![花海](https://img.ssshooter.com/img/elixia-player/花海.png)
+
+![欧若拉](https://img.ssshooter.com/img/elixia-player/欧若拉.png)
+
+![Pretender](https://img.ssshooter.com/img/elixia-player/Pretender-card.png)
+
+[![昔涟](https://img.ssshooter.com/img/elixia-player/昔涟-card.png)](https://y.qq.com/n/ryqq_v2/songDetail/002rhFKO3EjKAg)
 
 ```html
 <iframe
@@ -29,6 +39,8 @@ A modern music player web application built with Next.js, featuring AI-powered l
   src="https://elixia-player.koyeb.app/card/netease/610149"
 ></iframe>
 ```
+
+For more information, please read [Blog Music Player + 1](https://ssshooter.com/en/blog-music-player/)
 
 ### Image
 
